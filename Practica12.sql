@@ -8,3 +8,9 @@ insert into alumnos (dni,nombre,apellido,tel,email,direccion) values(42555120, '
 insert into inscripciones (nom_plan, nro_curso, dni , fecha_inscripcion) values ('Marketing 3', 1, 42555120, curdate());
  delete from alumnos where dni = 42555120;
  delete from inscripciones where dni = 42555120 and nom_plan = 'Marketing 3' and nro_curso =  1;
+
+
+
+
+declare --para variables 
+reads only -- ]Para funcion ver role play
