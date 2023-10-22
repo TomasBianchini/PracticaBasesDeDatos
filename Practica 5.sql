@@ -259,5 +259,3 @@ from valores_actuales va
 left join valores_anteriores van on van.nom_plan = va.nom_plan;
 
 
-
-
