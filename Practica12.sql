@@ -10,3 +10,9 @@ insert into inscripciones (nom_plan, nro_curso, dni , fecha_inscrisadaspcion) va
 commit;
  delete from alumnos where dni = 42555120;
  delete from inscripciones where dni = 42555120 and nom_plan = 'Marketing 3' and nro_curso =  1;
+
+
+
+
+declare --para variables 
+reads only -- ]Para funcion ver role play
