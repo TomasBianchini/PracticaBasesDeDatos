@@ -330,16 +330,65 @@ email: rimuru@jurashinrin.ma
 fecha de nacimiento: 1992-04-24
 categoria: daimaou
 */
-
-begin; 
 select cuil into @sup 
-from empleado emp where nombre = 'Clayman';
+from empleado emp where nombre = 'Clayman' and apellido = "Clown" ;
+select @sup;
+begin; 
+
 
 insert into empleado  ( cuil, nombre ,apellido ,telefono ,direccion ,email ,fecha_nac, categoria)
- values(24242424242, 'Rimuru', 'Tempest', '242424242', 'Hidden Cave 242', 'rimuru@jurashinrin.ma', 1992-04-24, 'daimaou');
+values("24242424242", 'Rimuru', 'Tempest', '242424242', 'Hidden Cave 242', 'rimuru@jurashinrin.ma', "1992-04-24", 'daimaou');
 
 update encargado_evento ee 
  inner join evento eve on ee.id_evento = eve.id
- set cuil_encargado = 24242424242
- where cuil_encargado = @sup and rol = 'Supervisor' and eve.fecha_desde > curdate() ;
+ set ee.cuil_encargado = "24242424242"
+ where ee.cuil_encargado = @sup and ee.rol = 'Supervisor' and eve.fecha_desde > current_date() ;
+rollback;
 commit; 
+
+
+/*5to parcialito*/
+/*303.7- Cree una función *antig_cliente* que dado una categoría de cliente calcule el tiempo que llevan siendo cliente 
+(diferencia entre primer y última fecha que contrató un stand en días) 
+cada cliente de esa categoría y devuelva el promedio de la categoría.
+ Luego calcule el tiempo que cada cliente lleva siéndolo y muestre quienes llevan más tiempo que el promedio de su categoría, utilizando dicha función.
+ 
+ Indique la razón social y categoría del cliente, el tiempo que lleva siendo cliente, el tiempo promedio de la categoría y la diferencia entre ambas.*/
+ 
+ 
+ USE `convenciones_underground`;
+DROP function IF EXISTS `antig_cliente`;
+
+USE `convenciones_underground`;
+DROP function IF EXISTS `convenciones_underground`.`antig_cliente`;
+;
+
+DELIMITER $$
+USE `convenciones_underground`$$
+CREATE DEFINER=`root`@`localhost` FUNCTION `antig_cliente`( cat varchar(255) ) RETURNS decimal(10,3)
+    READS SQL DATA
+BEGIN
+declare prom decimal(10,3) ; 
+with cliente_tiempo as (
+select cuit, datediff(max(fecha_contrato), min(fecha_contrato)) as tiempo
+from cliente cli 
+inner join stand st on st.cuit_cliente = cli.cuit 
+where cli.categoria = cat
+group by cuit
+)
+select avg(tiempo) into prom
+from cliente_tiempo ; 
+
+RETURN prom;
+END$$
+
+DELIMITER ;
+;
+
+select cli.razon_social, cli.categoria, datediff(max(fecha_contrato), min(fecha_contrato)) as antiguedad, antig_cliente(cli.categoria) as prom_categoria,
+datediff(max(fecha_contrato), min(fecha_contrato))- antig_cliente(cli.categoria) as diferencia
+from cliente cli 
+inner join stand st on st.cuit_cliente = cli.cuit 
+group by cli.razon_social, cli.categoria
+having datediff(max(fecha_contrato), min(fecha_contrato)) >= antig_cliente(cli.categoria);
+
