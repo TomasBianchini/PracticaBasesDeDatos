@@ -317,6 +317,7 @@ inner join cliente cli
 on cli.cuit= sta.cuit_cliente
 where cli.categoria like "%Sponsor%" and sta.ubicacion = "área principal"  );
 
+/*4to parcialito*/
 /*Clayman Clown 
 El supervisor Clayman Clown dejará de supervisar eventos, para reemplazarlo se ha contratado un nuevo empleado: Rimuru Tempest. Darlo de alta en el sistema con los datos que figuran a continuación y asignarlo, con rol de supervisor, a todos los futuros eventos donde Clayman debería ser supervisor.
 
@@ -345,6 +346,39 @@ update encargado_evento ee
  where ee.cuil_encargado = @sup and ee.rol = 'Supervisor' and eve.fecha_desde > current_date() ;
 rollback;
 commit; 
+
+/*-- 302.6- Farmenas absorve Falmuth. La empresa cliente Falmuth fue comprada y absorvida por Farmenas. Se debe ingresar al sistema la nueva empresa con los datos a continuación y migrar todos los stands contratados para eventos futuros por Falmuth a Farmenas.
+-- Cliente: cuit: 15151515151 razón social: Farmenas teléfono: 1515151515 dirección: 44 Arwenack Street email: farmenas@tairiku.ma categoría: Premium
+*/
+
+begin; 
+
+insert  into cliente (cuit, razon_social, telefono, direccion, email, categoria) values('5151515151', 'Farmenas','1515151515', '44 Arwenack Street', 'farmenas@tairiku.ma', ' Premium') ;
+update stand st
+inner join evento eve on eve.id = st.id_evento
+inner join cliente cli on cli.cuit = st.cuit_cliente
+set st.cuit_cliente = '15151515151' 
+where cli.razon_social = "Falmuth" and eve.fecha_desde > current_date();
+
+commit;
+
+/*304.6- *Reemplazo de Fuse* .El artista Fuse (denominación) sufrió una lesión en su espalda y no podra asistir a ninguna presentación que tenía asignada durante 2023. En su lugar las realizará Shiro Masamune. Dar de alta el nuevo presentador con los datos a continuación y reemplazar a Fuse con él para todas sus futuras presentaciones hasta fines de 2023.
+
+Nuevo presentador: cuit: 38383838383 telefono: 3838383838 email: masanoriota@gits.sac denominacion: Shiro Masamune
+*/
+
+begin; 
+insert into presentador (cuit,telefono,email, denominacion) values( '38383838383','3838383838' ,'masanoriota@gits.sac','Shiro Masamune'); 
+select max(id) into @ultimo_id
+from presentador; 
+update presentador_presentacion pp
+inner join presentador pre on pre.id = pp.id_presentador 
+inner join presentacion p on p.id_locacion = pp.id_locacion and p.nro_sala = pp.nro_sala and p.fecha_hora_ini = pp.fecha_hora_ini 
+set pp.id_presentador = @ultimo_id
+where pre.denominacion = 'Shiro Masamune' and year(p.fecha_hora_ini) and p.fecha_hora_ini > now();
+
+commit;
+
 
 
 /*5to parcialito*/
@@ -391,4 +425,92 @@ from cliente cli
 inner join stand st on st.cuit_cliente = cli.cuit 
 group by cli.razon_social, cli.categoria
 having datediff(max(fecha_contrato), min(fecha_contrato)) >= antig_cliente(cli.categoria);
+
+
+
+
+
+/*302.7- Cree una función presentaciones_zona que dada una zona calcule la cantidad de presentaciones por sala de dicha zona y devuelva el promedio de dicha cantidad. Luego listar las salas cuya cantidad de presentaciones supere el promedio de su zona, utilizando dicha función. Indique nombre de la sala, zona a donde pertenece, cantidad de presentaciones de la sala, promedio de la zona y diferencia de los mismos.*/
+USE `convenciones_underground`;
+DROP function IF EXISTS `presentaciones_zona`;
+
+DELIMITER $$
+USE `convenciones_underground`$$
+CREATE FUNCTION `presentaciones_zona` (zon varchar(255))
+RETURNS decimal(10,3)
+READS SQL DATA
+BEGIN
+declare prom decimal(10,3);
+
+with presen_zona as( 
+select  loc.id,sal.nro, count(*) as cant 
+from sala sal 
+inner join locacion loc on  loc.id = sal.id_locacion 
+inner join presentacion pre on pre.id_locacion = sal.id_locacion and pre.nro_sala = sal.nro
+where loc.zona = zon
+group by loc.id, sal.nro
+)
+select avg(cant) into prom 
+from presen_zona;
+
+
+RETURN prom;
+END$$
+
+DELIMITER ;
+
+/*Luego listar las salas cuya cantidad de presentaciones supere el promedio de su zona, utilizando dicha función. Indique nombre de la sala, zona a donde pertenece, cantidad de presentaciones de la sala, promedio de la zona y diferencia de los mismos.*/
+
+
+select sal.nombre, loc.zona, count(*), presentaciones_zona(loc.zona), count(*)- presentaciones_zona(loc.zona) 
+from sala sal
+inner join locacion loc on  loc.id = sal.id_locacion 
+inner join presentacion pre on pre.id_locacion = sal.id_locacion and pre.nro_sala = sal.nro
+group by sal.nombre, loc.zona
+having presentaciones_zona(loc.zona) <= count(*);
+
+
+
+
+/*304.7- Cree una función *presentaciones_anuales* que dado el cuit de un presentador calcule la cantidad de presentaciones por año y devuelva el promedio de las mismas. Luego listar los presentadores cuya cantidad de presentaciones en algún año sea mayor a la cantidad de presentaciones promedio de dicho año, utilizando dicha función. Indique nombre, apellido, denominación del presentador, año, cantidad de presentaciones por año, cantidad de presentaciones promedio de dicho año y la diferencia entre ambas.*/ 
+
+
+
+
+USE `convenciones_underground`;
+DROP function IF EXISTS `presentaciones_anuales`;
+
+DELIMITER $$
+USE `convenciones_underground`$$
+CREATE FUNCTION `presentaciones_anuales` (cu char(13))
+RETURNS decimal(10,3)
+reads sql data
+BEGIN
+declare prom decimal(10,3);
+with pre_anio as (
+select year(pre.fecha_hora_ini) anio, count(*) cant 
+from presentador_presentacion pp
+inner join presentacion pre on pre.id_locacion = pp.id_locacion and pre.nro_sala = pp.nro_sala and pre.fecha_hora_ini = pp.fecha_hora_ini 
+inner join presentador p on p.id = pp.id_presentador
+where p.cuit = cu
+group by year(pre.fecha_hora_ini)
+)
+select avg(cant) into prom 
+from pre_anio;
+RETURN prom;
+END$$
+
+DELIMITER ;
+
+
+
+
+select pre.nombre, pre.apellido, pre.denominacion, year(p.fecha_hora_ini) anio, count(*), presentaciones_anuales(pre.cuit),
+presentaciones_anuales(pre.cuit) - count(*)
+from presentador pre 
+inner join  presentador_presentacion pp on pre.id = pp.id_presentador
+inner join presentacion p on p.id_locacion = pp.id_locacion and p.nro_sala = pp.nro_sala and p.fecha_hora_ini = pp.fecha_hora_ini 
+group by pre.nombre, pre.apellido, pre.denominacion, anio, pre.cuit
+having presentaciones_anuales(pre.cuit) >= count(*);
+
 
